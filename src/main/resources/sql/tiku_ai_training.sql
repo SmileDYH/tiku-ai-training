@@ -11,7 +11,7 @@
  Target Server Version : 50733
  File Encoding         : 65001
 
- Date: 05/01/2023 15:30:58
+ Date: 05/01/2023 16:10:31
 */
 
 SET NAMES utf8mb4;
@@ -34,8 +34,9 @@ CREATE TABLE `book_chapter`  (
   `type_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '类型name',
   `chapter` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '章节code',
   `chapter_name` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '章节name',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '教材章节表' ROW_FORMAT = Dynamic;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_question_number`(`question_number`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 91 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '教材章节表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for knowledge
@@ -48,8 +49,9 @@ CREATE TABLE `knowledge`  (
   `question_number` bigint(20) NOT NULL COMMENT '题号',
   `code` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'code',
   `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '名称',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 13 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '知识点表' ROW_FORMAT = Dynamic;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_question_number`(`question_number`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 123 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '知识点表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for question
@@ -73,8 +75,10 @@ CREATE TABLE `question`  (
   `discuss` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '点评',
   `degree` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '难度code',
   `degree_name` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '难度name',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 70 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '试题表' ROW_FORMAT = Dynamic;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_question_number`(`question_number`) USING BTREE,
+  UNIQUE INDEX `uk_sid`(`sid`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 161 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '试题表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for question_option
@@ -88,8 +92,9 @@ CREATE TABLE `question_option`  (
   `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci COMMENT '选项内容',
   `correct_flag` tinyint(1) DEFAULT 0 COMMENT '是否正确答案(0否1是)',
   `serial_number` int(4) DEFAULT NULL COMMENT '序号',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 129 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '选项表' ROW_FORMAT = Dynamic;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_question_number`(`question_number`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 389 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '选项表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for question_original_data
@@ -102,7 +107,8 @@ CREATE TABLE `question_original_data`  (
   `question_number` bigint(20) NOT NULL COMMENT '题号',
   `question_json` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '试题原始json',
   `analysis_json` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '解析原始json',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '试题原始数据' ROW_FORMAT = Dynamic;
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_question_number`(`question_number`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 92 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '试题原始数据' ROW_FORMAT = Dynamic;
 
 SET FOREIGN_KEY_CHECKS = 1;

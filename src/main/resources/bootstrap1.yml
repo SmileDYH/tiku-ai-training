@@ -1,3 +1,4 @@
+#springcloud配置文件
 server:
   port: 8088
 spring:
