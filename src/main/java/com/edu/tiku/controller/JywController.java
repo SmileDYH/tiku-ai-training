@@ -131,6 +131,8 @@ public class JywController {
         //记录并获取页数 TODO
         //通过redis获取 p1+p2+页码，不存在则保存，存在+1后保存，通过这个页码获取数据
 
+        //TODO 获取教材章节，入参赋值
+
         //查询试题
         String questionUrl = String.format("http://api.jyeoo.com/v1/%s/counter/QuesQuery?tp=%s&p1=%s&p2=%s&p3=%s&ct=%s&dg=%s&sc=%s&gc=%s&rc=%s" +
                         "&yc=%s&ec=%s&er=%s&so=%s&yr=%s&rg=%s&po=%s&pd=%s&pi=%s&ps=%s&onlyNos=%s"
@@ -142,9 +144,15 @@ public class JywController {
 
         String questionJson = getBody(questionUrl, request.getToken());
         List<Ques> questionList = getQuestionList(questionJson);
+//        System.out.println("aaa--->" + JSON.toJSONString(questionList));
         questionList.forEach(entity -> {
             //入库
             Question question = getQuestion(entity);
+            Question ques = questionMapper.selectOne(Wrappers.<Question>lambdaQuery().eq(Question::getSid, question.getSid()));
+            //判断库里是否有，是否是重复的题
+            if (ques != null){
+                return;
+            }
             questionMapper.insert(question);
             Long questionNumber = question.getQuestionNumber();
 //            log.info("question入库成功：questionNumber=={}", question.getQuestionNumber());
@@ -169,7 +177,7 @@ public class JywController {
                     .eq(QuestionOriginalData::getQuestionNumber, questionNumber));
             questionOriginalData.setAnalysisJson(analysisJson);
             questionOriginalDataMapper.updateById(questionOriginalData);
-            //选项
+            //选项 TODO 每个学科不一样
             if (entity.getCate().equals("1") || entity.getCate().equals("3")){
                 List<QuestionOption> optionList = getOptionList(analysis.getOptions(), analysis.getAnswers(), questionNumber);
                 optionService.saveBatch(optionList);
@@ -222,6 +230,7 @@ public class JywController {
     private Question getQuestion(Ques ques) {
         Question question = new Question();
         question.setQuestionNumber(SnowFlakeIDGenerator.nextNumber());
+        log.info("SID=={}", ques.getSID());
         question.setSid(ques.getSID());
         question.setSubject(ques.getSubject());
         question.setSubjectName(SubjectEnum.getDesc(ques.getSubject()));
