@@ -1,19 +1,19 @@
 package com.edu.tiku.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.edu.tiku.common.enums.SubjectEnum;
-import com.edu.tiku.common.utils.DES3;
 import com.edu.tiku.common.utils.SnowFlakeIDGenerator;
 import com.edu.tiku.mapper.*;
 import com.edu.tiku.model.entity.*;
-import com.edu.tiku.model.entity.QuestionOption;
 import com.edu.tiku.model.entity.jyw.KeyValuePair;
 import com.edu.tiku.model.entity.jyw.Ques;
 import com.edu.tiku.model.request.JywLoginRequest;
 import com.edu.tiku.model.request.JywQueryQuestionRequest;
 import com.edu.tiku.model.request.JywRegisterRequest;
+import com.edu.tiku.service.BaseBookChapterService;
 import com.edu.tiku.service.JywService;
 import com.edu.tiku.service.KnowledgeService;
 import com.edu.tiku.service.OptionService;
@@ -28,10 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.Resource;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 /**
  * description: 菁优网controller
@@ -67,6 +70,9 @@ public class JywController {
     @Resource
     private JywService jywService;
 
+    @Resource
+    private BaseBookChapterService baseBookChepterService;
+
     @PostMapping("register")
     public String register(@RequestBody JywRegisterRequest request) {
         return jywService.register(request);
@@ -85,6 +91,7 @@ public class JywController {
         //通过redis获取 p1+p2+页码，不存在则保存，存在+1后保存，通过这个页码获取数据
 
         //TODO 获取教材章节，入参赋值
+        //id+页数存redis
 
         //查询试题
         String questionUrl = String.format("http://api.jyeoo.com/v1/%s/counter/QuesQuery?tp=%s&p1=%s&p2=%s&p3=%s&ct=%s&dg=%s&sc=%s&gc=%s&rc=%s" +
@@ -103,7 +110,7 @@ public class JywController {
             Question question = getQuestion(entity);
             Question ques = questionMapper.selectOne(Wrappers.<Question>lambdaQuery().eq(Question::getSid, question.getSid()));
             //判断库里是否有，是否是重复的题
-            if (ques != null){
+            if (ques != null) {
                 return;
             }
             questionMapper.insert(question);
@@ -118,12 +125,12 @@ public class JywController {
 
             //查询解析
             String analysisUrl = String.format("http://api.jyeoo.com/v1/%s/counter/QuesGet?id=%s"
-                , request.getSubject(), question.getSid());
+                    , request.getSubject(), question.getSid());
             String analysisJson = getBody(analysisUrl, request.getToken());
             List<Ques> analysisList = getAnalysisList(analysisJson);
             question = questionMapper.selectOne(Wrappers.<Question>lambdaQuery().eq(Question::getQuestionNumber, questionNumber));
             Ques analysis = analysisList.get(0);
-            setAnalysis(analysis,  question);
+            setAnalysis(analysis, question);
             questionMapper.updateById(question);
             //原始数据
             questionOriginalData = questionOriginalDataMapper.selectOne(Wrappers.<QuestionOriginalData>lambdaQuery()
@@ -131,19 +138,19 @@ public class JywController {
             questionOriginalData.setAnalysisJson(analysisJson);
             questionOriginalDataMapper.updateById(questionOriginalData);
             //选项 TODO 每个学科不一样
-            if (entity.getCate().equals("1") || entity.getCate().equals("3")){
+            if (entity.getCate().equals("1") || entity.getCate().equals("3")) {
                 List<QuestionOption> optionList = getOptionList(analysis.getOptions(), analysis.getAnswers(), questionNumber);
                 optionService.saveBatch(optionList);
             }
             //知识点
             List<Knowledge> knowledgeList = getKnowledgeList(analysis.getPoints(), questionNumber);
-            if (!knowledgeList.isEmpty()){
+            if (!knowledgeList.isEmpty()) {
                 knowledgeService.saveBatch(knowledgeList);
             }
             //教材章节
             BookChapter bookChapter = new BookChapter();
             bookChapter.setQuestionNumber(questionNumber);
-            BeanUtils.copyProperties(request,bookChapter);
+            BeanUtils.copyProperties(request, bookChapter);
             bookChapterMapper.insert(bookChapter);
             log.info("试题入库成功：questionNumber=={}", question.getQuestionNumber());
         });
@@ -167,7 +174,7 @@ public class JywController {
         String JsonStr = jObject.get("Data").toString();
         List<String> stringList = JSONObject.parseArray(JsonStr, String.class);
         List<Ques> quesList = JSONObject.parseArray(JsonStr, Ques.class);
-        for (int i=0; i<quesList.size(); i++){
+        for (int i = 0; i < quesList.size(); i++) {
             quesList.get(i).setJson(stringList.get(i));
         }
 //        log.info("getQuestionList：{}", JSON.toJSONString(quesList));
@@ -200,23 +207,23 @@ public class JywController {
         return question;
     }
 
-    private void setAnalysis(Ques ques, Question question){
+    private void setAnalysis(Ques ques, Question question) {
         question.setAnswers(ques.getAnswers().toString());
         question.setMethod(ques.getMethod());
         question.setAnalyse(ques.getAnalyse());
         question.setDiscuss(ques.getDiscuss());
     }
 
-    private List<QuestionOption> getOptionList(List<String> options, List<String> answers, Long qusetionNumber){
+    private List<QuestionOption> getOptionList(List<String> options, List<String> answers, Long qusetionNumber) {
         List<QuestionOption> optionList = new ArrayList<>();
-        for(int i=0; i<options.size(); i++){
+        for (int i = 0; i < options.size(); i++) {
             QuestionOption option = new QuestionOption();
             option.setQuestionNumber(qusetionNumber);
-            option.setSerialNumber(i+1);
+            option.setSerialNumber(i + 1);
             option.setContent(options.get(i));
-            if (answers.contains(String.valueOf(i))){
+            if (answers.contains(String.valueOf(i))) {
                 option.setCorrectFlag(true);
-            }else {
+            } else {
                 option.setCorrectFlag(false);
             }
             optionList.add(option);
@@ -224,7 +231,7 @@ public class JywController {
         return optionList;
     }
 
-    private List<Knowledge> getKnowledgeList(List<KeyValuePair<String, String>> points, Long questionNumber){
+    private List<Knowledge> getKnowledgeList(List<KeyValuePair<String, String>> points, Long questionNumber) {
         List<Knowledge> knowledgeList = new ArrayList<>();
         points.forEach(entity -> {
             Knowledge knowledge = new Knowledge();
@@ -237,22 +244,120 @@ public class JywController {
     }
 
     //难度（0：不限；11：易（0.8到1.0）；12：较易（0.6到0.8）；13：中档（0.4到0.6）；14：较难：（0.2到0.4）；15：难：（0.0到0.2）（大于等于；小于））
-    private String getDegreeName(String degree){
+    private String getDegreeName(String degree) {
         float d = Float.valueOf(degree);
         String degreeName = "";
-        if (d < 0.2){
+        if (d < 0.2) {
             degreeName = "难";
-        }else if (d < 0.4){
+        } else if (d < 0.4) {
             degreeName = "较难";
-        }else if (d < 0.6){
+        } else if (d < 0.6) {
             degreeName = "中档";
-        }else if (d < 0.8){
+        } else if (d < 0.8) {
             degreeName = "较易";
-        }else if (d < 1.0){
+        } else if (d < 1.0) {
             degreeName = "易";
-        }else {
+        } else {
             degreeName = "未知";
         }
         return degreeName;
+    }
+
+    /**
+     * 保存章节教材
+     *
+     * @return
+     */
+    @PostMapping("/book/save")
+    public String saveBook() {
+        //获取文件
+        StringBuilder stringBuilder = getFeil();
+        //转json
+        JSONArray jsonArray = JSONArray.parseArray(stringBuilder.toString());
+
+        //循环转实体   需要一个表
+        int i = 0;
+        List<BaseBookChapter> list = new ArrayList<>();
+        for (Object object : jsonArray) {
+            JSONObject jsonObject = (JSONObject) JSON.toJSON(object);
+            Map<String, String> map = new HashMap<>();
+
+            JSONArray jsonArray1 = (JSONArray)jsonObject.get("Children");
+            if (jsonArray1.size() == 0){
+                addList(jsonObject, map, list);
+            }
+            for (Object object1 : jsonArray1){
+                JSONObject jsonObject1 = (JSONObject) JSON.toJSON(object1);
+                putMap(map, jsonObject1, 1);
+
+                JSONArray jsonArray2 = (JSONArray)jsonObject1.get("Children");
+                if (jsonArray2.size() == 0){
+                    addList(jsonObject, map, list);
+                }
+                for (Object object2 : jsonArray2){
+                    JSONObject jsonObject2 = (JSONObject) JSON.toJSON(object2);
+                    putMap(map, jsonObject2, 2);
+
+                    JSONArray jsonArray3 = (JSONArray)jsonObject2.get("Children");
+                    if (jsonArray3.size() == 0){
+                        addList(jsonObject, map, list);
+                    }
+                    for (Object object3 : jsonArray3) {
+                        JSONObject jsonObject3 = (JSONObject) JSON.toJSON(object3);
+                        putMap(map, jsonObject3, 3);
+
+                        addList(jsonObject, map, list);
+                    }
+                }
+            }
+        }
+
+        //保存
+        baseBookChepterService.saveBatch(list);
+        return null;
+    }
+
+    private StringBuilder getFeil(){
+        StringBuilder stringBuilder = new StringBuilder();
+        try {
+            String filePath = "D:/章节教材.txt";
+            FileInputStream fin = new FileInputStream(filePath);
+            InputStreamReader reader = new InputStreamReader(fin);
+            BufferedReader buffReader = new BufferedReader(reader);
+            String strTmp = "";
+            while ((strTmp = buffReader.readLine()) != null) {
+                stringBuilder.append(strTmp);
+//                System.out.println(strTmp);
+            }
+            buffReader.close();
+        } catch (Exception e) {
+            log.info("文件获取失败！", e);
+        }
+        return stringBuilder;
+    }
+
+    private void addList(JSONObject jsonObject, Map<String, String> map, List<BaseBookChapter> list){
+        BaseBookChapter baseBookChepter = new BaseBookChapter();
+        baseBookChepter.setSubject("32");
+        baseBookChepter.setSubjectName("高中化学");
+        baseBookChepter.setBook((String) jsonObject.get("ID"));
+        baseBookChepter.setBookName((String) jsonObject.get("Name"));
+        baseBookChepter.setEditionName((String) jsonObject.get("EditionName"));
+        baseBookChepter.setGradeName((String) jsonObject.get("GradeName"));
+        baseBookChepter.setTermName((String) jsonObject.get("TermName"));
+        baseBookChepter.setTypeName((String) jsonObject.get("TypeName"));
+
+        baseBookChepter.setChapter1(map.get("chapter1"));
+        baseBookChepter.setChapterName1(map.get("chapterName1"));
+        baseBookChepter.setChapter2(map.get("chapter2"));
+        baseBookChepter.setChapterName2(map.get("chapterName2"));
+        baseBookChepter.setChapter3(map.get("chapter3"));
+        baseBookChepter.setChapterName3(map.get("chapterName3"));
+        list.add(baseBookChepter);
+    }
+
+    private void putMap(Map<String, String> map, JSONObject jsonObject, int i){
+        map.put("chapter" + i, (String)jsonObject.get("ID"));
+        map.put("chapterName" + i, (String)jsonObject.get("Name"));
     }
 }
