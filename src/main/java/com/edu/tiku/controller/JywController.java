@@ -19,6 +19,9 @@ import com.edu.tiku.service.KnowledgeService;
 import com.edu.tiku.service.OptionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -73,6 +76,14 @@ public class JywController {
     @Resource
     private BaseBookChapterService baseBookChepterService;
 
+//    @Resource
+//    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    private static final String BOOK_CHAPTER_PAGE_KEY = "bookChapterPage";
+
     @PostMapping("register")
     public String register(@RequestBody JywRegisterRequest request) {
         return jywService.register(request);
@@ -87,11 +98,7 @@ public class JywController {
     @Transactional
     public String queryQuestion(@RequestBody JywQueryQuestionRequest request) {
         log.info("request=={}", JSON.toJSONString(request));
-        //记录并获取页数 TODO
-        //通过redis获取 p1+p2+页码，不存在则保存，存在+1后保存，通过这个页码获取数据
-
-        //TODO 获取教材章节，入参赋值
-        //id+页数存redis
+        setRequest(request);
 
         //查询试题
         String questionUrl = String.format("http://api.jyeoo.com/v1/%s/counter/QuesQuery?tp=%s&p1=%s&p2=%s&p3=%s&ct=%s&dg=%s&sc=%s&gc=%s&rc=%s" +
@@ -106,7 +113,7 @@ public class JywController {
         List<Ques> questionList = getQuestionList(questionJson);
 //        System.out.println("aaa--->" + JSON.toJSONString(questionList));
         questionList.forEach(entity -> {
-            //入库
+            //入库 TODO 新增章节id
             Question question = getQuestion(entity);
             Question ques = questionMapper.selectOne(Wrappers.<Question>lambdaQuery().eq(Question::getSid, question.getSid()));
             //判断库里是否有，是否是重复的题
@@ -359,5 +366,46 @@ public class JywController {
     private void putMap(Map<String, String> map, JSONObject jsonObject, int i){
         map.put("chapter" + i, (String)jsonObject.get("ID"));
         map.put("chapterName" + i, (String)jsonObject.get("Name"));
+    }
+
+    private void setRequest(JywQueryQuestionRequest request){
+        //redis添加教材章节id，页码数
+//        Map<String, Integer> map = new HashMap<>();
+//        map.put("id", 1);
+//        map.put("page", 1);
+//        redisTemplate.opsForHash().putAll(BOOK_CHAPTER_PAGE_KEY, map);
+        //通过redis获取教材章节id，页码数
+        Integer id = (Integer) redisTemplate.opsForHash().get(BOOK_CHAPTER_PAGE_KEY, "id");
+        Integer page = (Integer) redisTemplate.opsForHash().get(BOOK_CHAPTER_PAGE_KEY, "page");
+        log.info("id_page == {}", id+"_"+page);
+        if (page == 50){
+            //id +1，page置为1
+            redisTemplate.opsForHash().increment(BOOK_CHAPTER_PAGE_KEY, "id", 1);
+            redisTemplate.opsForHash().put(BOOK_CHAPTER_PAGE_KEY, "page", 1);
+        }else {
+            redisTemplate.opsForHash().increment(BOOK_CHAPTER_PAGE_KEY, "page", 1);
+        }
+        BaseBookChapter baseBookChapter = baseBookChepterService.getById(id);
+
+        request.setP1(baseBookChapter.getBook());
+        String chapter = null;
+        String chapterName = null;
+        if (baseBookChapter.getChapter3() == null){
+            chapter = baseBookChapter.getChapter2();
+            chapterName = baseBookChapter.getChapterName2();
+            if (baseBookChapter.getChapter2() == null){
+                chapter = baseBookChapter.getChapter1();
+                chapterName = baseBookChapter.getChapterName1();
+            }
+        }else {
+            chapter = baseBookChapter.getChapter3();
+            chapterName = baseBookChapter.getChapterName3();
+        }
+        request.setP2(chapter);
+        request.setPi(page.toString());
+
+        BeanUtils.copyProperties(baseBookChapter, request);
+        request.setChapter(chapter);
+        request.setChapterName(chapterName);
     }
 }
