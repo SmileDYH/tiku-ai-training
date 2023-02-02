@@ -6,6 +6,10 @@ spring:
     url: jdbc:mysql://172.16.1.236:3306/tiku_ai_training?useUnicode=true&useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: baixiao
     password: tfedu6188
+  redis:
+    host: 172.16.1.11
+    port: 6379
+    database: 2
 
 #日志配置
 #mybatis-plus:
