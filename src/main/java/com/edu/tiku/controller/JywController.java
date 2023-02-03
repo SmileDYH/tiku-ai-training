@@ -113,8 +113,8 @@ public class JywController {
         List<Ques> questionList = getQuestionList(questionJson);
 //        System.out.println("aaa--->" + JSON.toJSONString(questionList));
         questionList.forEach(entity -> {
-            //入库 TODO 新增章节id
-            Question question = getQuestion(entity);
+            //入库
+            Question question = getQuestion(entity, request.getBaseBookChepterId());
             Question ques = questionMapper.selectOne(Wrappers.<Question>lambdaQuery().eq(Question::getSid, question.getSid()));
             //判断库里是否有，是否是重复的题
             if (ques != null) {
@@ -194,7 +194,7 @@ public class JywController {
         return quesList;
     }
 
-    private Question getQuestion(Ques ques) {
+    private Question getQuestion(Ques ques, Integer baseBookChepterId) {
         Question question = new Question();
         question.setQuestionNumber(SnowFlakeIDGenerator.nextNumber());
         log.info("SID=={}", ques.getSID());
@@ -211,6 +211,7 @@ public class JywController {
 //        question.setDiscuss(ques.getDiscuss());
         question.setDegree(ques.getDegree());
         question.setDegreeName(getDegreeName(ques.getDegree()));
+        question.setBaseBookChepterId(baseBookChepterId);
         return question;
     }
 
@@ -374,6 +375,7 @@ public class JywController {
 //        map.put("id", 1);
 //        map.put("page", 1);
 //        redisTemplate.opsForHash().putAll(BOOK_CHAPTER_PAGE_KEY, map);
+
         //通过redis获取教材章节id，页码数
         Integer id = (Integer) redisTemplate.opsForHash().get(BOOK_CHAPTER_PAGE_KEY, "id");
         Integer page = (Integer) redisTemplate.opsForHash().get(BOOK_CHAPTER_PAGE_KEY, "page");
@@ -407,5 +409,6 @@ public class JywController {
         BeanUtils.copyProperties(baseBookChapter, request);
         request.setChapter(chapter);
         request.setChapterName(chapterName);
+        request.setBaseBookChepterId(baseBookChapter.getId());
     }
 }

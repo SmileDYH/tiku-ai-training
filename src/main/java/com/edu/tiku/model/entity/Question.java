@@ -75,5 +75,7 @@ public class Question implements Serializable {
     @ApiModelProperty(value = "难度name")
     private String degreeName;
 
+    @ApiModelProperty(value = "章节教材目录主键")
+    private Integer baseBookChepterId;
 
 }

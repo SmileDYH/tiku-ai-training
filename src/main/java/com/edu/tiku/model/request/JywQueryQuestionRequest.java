@@ -59,4 +59,7 @@ public class JywQueryQuestionRequest {
     private String chapterName;
 
     private String token;
+
+    @ApiModelProperty(value = "章节教材目录主键")
+    private Integer baseBookChepterId;
 }
