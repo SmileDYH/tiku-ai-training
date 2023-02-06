@@ -20,6 +20,7 @@ import com.edu.tiku.service.OptionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.*;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * description: 菁优网controller
@@ -83,6 +85,10 @@ public class JywController {
     private RedisTemplate<String, Object> redisTemplate;
 
     private static final String BOOK_CHAPTER_PAGE_KEY = "bookChapterPage";
+
+    @Autowired
+    @Qualifier("massageQueue")
+    private LinkedBlockingQueue<JywQueryQuestionRequest> queue;
 
     @PostMapping("register")
     public String register(@RequestBody JywRegisterRequest request) {
@@ -411,4 +417,15 @@ public class JywController {
         request.setChapterName(chapterName);
         request.setBaseBookChepterId(baseBookChapter.getId());
     }
+
+    @PostMapping("messageProduction")
+    public void messageProduction(@RequestBody JywQueryQuestionRequest request){
+        log.info("消息生产: {}", request);
+        try {
+            queue.put(request);
+        }catch (Exception e){
+            log.info("生产异常：{}", e);
+        }
+    }
+
 }
